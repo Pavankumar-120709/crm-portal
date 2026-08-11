@@ -1,11 +1,10 @@
 import React from 'react';
-import { LucideIcon } from 'lucide-react';
 
 interface StatCardProps {
   title: string;
   value: string | number;
   subtitle?: string;
-  icon: LucideIcon;
+  icon: any;
   color?: 'primary' | 'success' | 'warning' | 'danger' | 'info';
   trend?: string;
 }
@@ -55,7 +54,7 @@ export const StatCard: React.FC<StatCardProps> = ({
           flexShrink: 0,
         }}
       >
-        <Icon size={26} />
+        {Icon && <Icon size={26} />}
       </div>
     </div>
   );
