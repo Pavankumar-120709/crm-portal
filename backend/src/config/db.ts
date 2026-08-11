@@ -2,12 +2,12 @@ import { Pool } from 'pg';
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
+import bcrypt from 'bcryptjs';
 
 dotenv.config();
 
 const rawConnectionString = process.env.DATABASE_URL || '';
 
-// Check if DATABASE_URL is set and is NOT a dummy placeholder
 const isPlaceholderUrl =
   !rawConnectionString ||
   rawConnectionString.includes('ep-sample-123456') ||
@@ -16,15 +16,6 @@ const isPlaceholderUrl =
 export let dbMode: 'postgres' | 'sqlite' | 'json' = 'json';
 
 let pgPool: Pool | null = null;
-let sqliteDb: any = null;
-
-// Dynamically check if sqlite3 is installed and loadable
-let sqlite3Module: any = null;
-try {
-  sqlite3Module = require('sqlite3');
-} catch (e) {
-  // sqlite3 module not compiled/available, will fallback to JSON store
-}
 
 if (!isPlaceholderUrl) {
   dbMode = 'postgres';
@@ -37,10 +28,6 @@ if (!isPlaceholderUrl) {
   pgPool.on('error', (err) => {
     console.error('PostgreSQL pool error:', err.message);
   });
-} else if (sqlite3Module) {
-  dbMode = 'sqlite';
-  const dbPath = path.join(__dirname, '../../mini_erp.db');
-  sqliteDb = new sqlite3Module.Database(dbPath);
 } else {
   dbMode = 'json';
   console.log('ℹ️ Local development mode: Using embedded JSON file store (dev_storage.json)');
@@ -48,7 +35,7 @@ if (!isPlaceholderUrl) {
 
 export const isPostgres = dbMode === 'postgres';
 
-// --- Embedded JSON File Store Implementation ---
+// --- Embedded Storage Engine ---
 const jsonFilePath = path.join(__dirname, '../../dev_storage.json');
 
 interface LocalStorage {
@@ -60,28 +47,67 @@ interface LocalStorage {
   challan_items: any[];
 }
 
+function getInitialSeededStore(): LocalStorage {
+  const defaultPasswordHash = bcrypt.hashSync('Password123!', 10);
+
+  const users = [
+    { id: 1, name: 'System Administrator', email: 'admin@erp.com', password_hash: defaultPasswordHash, role: 'ADMIN', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+    { id: 2, name: 'Sales Representative', email: 'sales@erp.com', password_hash: defaultPasswordHash, role: 'SALES', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+    { id: 3, name: 'Warehouse Manager', email: 'warehouse@erp.com', password_hash: defaultPasswordHash, role: 'WAREHOUSE', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+    { id: 4, name: 'Accounts Officer', email: 'accounts@erp.com', password_hash: defaultPasswordHash, role: 'ACCOUNTS', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+  ];
+
+  const customers = [
+    { id: 1, customer_name: 'Acme Logistics Corp', mobile: '+1 555-0192', email: 'procurement@acmelogistics.com', business_name: 'Acme Logistics LLC', gst_number: '27AAACA12341Z1', customer_type: 'WHOLESALE', address: '100 Industrial Parkway, Suite 400', status: 'ACTIVE', follow_up_date: '2026-08-20', notes: 'Key wholesale client.', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+    { id: 2, customer_name: 'Apex Technologies', mobile: '+1 555-0188', email: 'contact@apextech.io', business_name: 'Apex Tech Solutions', gst_number: '27BBBBB56782Z2', customer_type: 'DISTRIBUTOR', address: '450 Tech Avenue, Floor 12', status: 'ACTIVE', follow_up_date: '2026-08-15', notes: 'Distributor for regional market.', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+    { id: 3, customer_name: 'Global Trading Co', mobile: '+1 555-0144', email: 'info@globaltrading.org', business_name: 'Global Trading Inc', gst_number: '27CCCCC90123Z3', customer_type: 'RETAIL', address: '88 Commercial Street', status: 'LEAD', follow_up_date: '2026-08-18', notes: 'Initial contact made.', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+  ];
+
+  const products = [
+    { id: 1, product_name: 'Ergonomic Executive Desk', sku: 'FURN-DESK-001', category: 'Furniture', unit_price: 450.00, current_stock: 25, minimum_stock: 5, warehouse_location: 'Aisle A1 - Bay 4', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+    { id: 2, product_name: 'High-Back Mesh Office Chair', sku: 'FURN-CHAIR-002', category: 'Furniture', unit_price: 180.00, current_stock: 40, minimum_stock: 10, warehouse_location: 'Aisle A2 - Bay 1', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+    { id: 3, product_name: 'Wireless Mechanical Keyboard', sku: 'ELEC-KEYB-003', category: 'Electronics', unit_price: 85.50, current_stock: 12, minimum_stock: 15, warehouse_location: 'Aisle B1 - Bin 09', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+    { id: 4, product_name: 'Ultra-Wide 34-Inch Monitor', sku: 'ELEC-MON-004', category: 'Electronics', unit_price: 520.00, current_stock: 8, minimum_stock: 10, warehouse_location: 'Aisle B2 - Bin 02', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+  ];
+
+  const stock_movements = [
+    { id: 1, product_id: 1, quantity: 25, movement_type: 'IN', reason: 'Initial Inventory Intake', created_by: 3, created_at: new Date().toISOString() },
+    { id: 2, product_id: 2, quantity: 40, movement_type: 'IN', reason: 'Initial Inventory Intake', created_by: 3, created_at: new Date().toISOString() },
+  ];
+
+  const challans = [
+    { id: 1, challan_number: 'CH-2026-0001', customer_id: 1, total_quantity: 5, status: 'CONFIRMED', created_by: 2, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+  ];
+
+  const challan_items = [
+    { id: 1, challan_id: 1, product_id: 1, product_name_snapshot: 'Ergonomic Executive Desk', sku_snapshot: 'FURN-DESK-001', unit_price_snapshot: 450.00, quantity: 2, subtotal: 900.00 },
+  ];
+
+  return { users, customers, products, stock_movements, challans, challan_items };
+}
+
 function loadStore(): LocalStorage {
   if (fs.existsSync(jsonFilePath)) {
     try {
       const data = fs.readFileSync(jsonFilePath, 'utf8');
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      if (parsed && Array.isArray(parsed.users) && parsed.users.length > 0) {
+        return parsed;
+      }
     } catch (e) {}
   }
-  return { users: [], customers: [], products: [], stock_movements: [], challans: [], challan_items: [] };
+  const store = getInitialSeededStore();
+  saveStore(store);
+  return store;
 }
 
 function saveStore(data: LocalStorage) {
-  fs.writeFileSync(jsonFilePath, JSON.stringify(data, null, 2), 'utf8');
+  try {
+    fs.writeFileSync(jsonFilePath, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) {}
 }
 
-// Transform Postgres SQL parameters ($1, $2) to SQLite (?)
-function transformSqlForSqlite(sql: string): { sql: string } {
-  let transformed = sql;
-  transformed = transformed.replace(/\bILIKE\b/g, 'LIKE');
-  transformed = transformed.replace(/\bFOR UPDATE\b/gi, '');
-  transformed = transformed.replace(/\$\d+/g, '?');
-  return { sql: transformed };
-}
+let isAutoInitializingPg = false;
 
 // Unified Query Handler
 export async function query(text: string, params: any[] = []): Promise<{ rows: any[]; rowCount: number }> {
@@ -91,80 +117,46 @@ export async function query(text: string, params: any[] = []): Promise<{ rows: a
       const res = await pgPool.query(text, params);
       return { rows: res.rows, rowCount: res.rowCount ?? res.rows.length };
     } catch (err: any) {
+      // If table doesn't exist yet (42P01), trigger DDL init automatically
+      if (err.code === '42P01' && !isAutoInitializingPg) {
+        isAutoInitializingPg = true;
+        try {
+          console.log('⚡ Missing database tables detected. Auto-executing Postgres schema initialization...');
+          const schemaPath = path.join(__dirname, '../db/schema.sql');
+          if (fs.existsSync(schemaPath)) {
+            const schemaSql = fs.readFileSync(schemaPath, 'utf8');
+            await pgPool.query(schemaSql);
+            // Run seed script inline
+            const defaultPasswordHash = bcrypt.hashSync('Password123!', 10);
+            await pgPool.query(`
+              INSERT INTO users (name, email, password_hash, role) VALUES
+              ('System Administrator', 'admin@erp.com', '${defaultPasswordHash}', 'ADMIN'),
+              ('Sales Representative', 'sales@erp.com', '${defaultPasswordHash}', 'SALES'),
+              ('Warehouse Manager', 'warehouse@erp.com', '${defaultPasswordHash}', 'WAREHOUSE'),
+              ('Accounts Officer', 'accounts@erp.com', '${defaultPasswordHash}', 'ACCOUNTS')
+              ON CONFLICT (email) DO NOTHING;
+            `);
+          }
+          isAutoInitializingPg = false;
+          // Retry original query
+          const retryRes = await pgPool.query(text, params);
+          return { rows: retryRes.rows, rowCount: retryRes.rowCount ?? retryRes.rows.length };
+        } catch (initErr) {
+          isAutoInitializingPg = false;
+        }
+      }
+
+      // If connection fails (authentication / invalid host), fall back to local store
       if (err.code === '28P01' || err.message?.includes('password authentication failed') || err.message?.includes('ECONNREFUSED')) {
         console.warn(`⚠️ PostgreSQL connection failed (${err.message}). Falling back to local embedded store...`);
-        dbMode = sqlite3Module ? 'sqlite' : 'json';
+        dbMode = 'json';
         return query(text, params);
       }
       throw err;
     }
   }
 
-  // 2. SQLite Engine
-  if (dbMode === 'sqlite' && sqliteDb) {
-    const { sql: sqliteSql } = transformSqlForSqlite(text);
-    const trimmed = sqliteSql.trim();
-    const isSelect = /^SELECT/i.test(trimmed);
-    const isInsert = /^INSERT/i.test(trimmed);
-    const isUpdate = /^UPDATE/i.test(trimmed);
-    const isDelete = /^DELETE/i.test(trimmed);
-
-    return new Promise((resolve, reject) => {
-      if (isSelect) {
-        sqliteDb.all(sqliteSql, params, (err: any, rows: any[]) => {
-          if (err) return reject(err);
-          resolve({ rows: rows || [], rowCount: (rows || []).length });
-        });
-      } else if (isInsert) {
-        sqliteDb.run(sqliteSql, params, function (this: any, err: any) {
-          if (err) return reject(err);
-          const lastId = this.lastID;
-          const matchTable = sqliteSql.match(/INSERT\s+INTO\s+([a-zA-Z0-9_]+)/i);
-          if (matchTable && /RETURNING/i.test(text)) {
-            const tableName = matchTable[1];
-            sqliteDb.get(`SELECT * FROM ${tableName} WHERE id = ?`, [lastId], (err2: any, row: any) => {
-              if (err2 || !row) {
-                sqliteDb.get(`SELECT * FROM ${tableName} WHERE rowid = ?`, [lastId], (err3: any, rowIdRow: any) => {
-                  resolve({ rows: rowIdRow ? [rowIdRow] : [{ id: lastId }], rowCount: 1 });
-                });
-              } else {
-                resolve({ rows: [row], rowCount: 1 });
-              }
-            });
-          } else {
-            resolve({ rows: [{ id: lastId }], rowCount: 1 });
-          }
-        });
-      } else if (isUpdate) {
-        sqliteDb.run(sqliteSql, params, function (this: any, err: any) {
-          if (err) return reject(err);
-          const changes = this.changes;
-          const matchTable = sqliteSql.match(/UPDATE\s+([a-zA-Z0-9_]+)/i);
-          const idVal = params[params.length - 1];
-          if (matchTable && /RETURNING/i.test(text) && idVal !== undefined) {
-            const tableName = matchTable[1];
-            sqliteDb.get(`SELECT * FROM ${tableName} WHERE id = ?`, [idVal], (err2: any, row: any) => {
-              resolve({ rows: row ? [row] : [], rowCount: changes });
-            });
-          } else {
-            resolve({ rows: [], rowCount: changes });
-          }
-        });
-      } else if (isDelete) {
-        sqliteDb.run(sqliteSql, params, function (this: any, err: any) {
-          if (err) return reject(err);
-          resolve({ rows: [], rowCount: this.changes });
-        });
-      } else {
-        sqliteDb.exec(sqliteSql, (err: any) => {
-          if (err) return reject(err);
-          resolve({ rows: [], rowCount: 0 });
-        });
-      }
-    });
-  }
-
-  // 3. Embedded JSON File Storage Engine (Zero Dependency Fallback)
+  // 2. Embedded Storage Engine (Zero Dependency Fallback)
   const store = loadStore();
   const sqlUpper = text.toUpperCase().trim();
 
@@ -245,7 +237,6 @@ export async function query(text: string, params: any[] = []): Promise<{ rows: a
           (c.email && c.email.toLowerCase().includes(s))
         );
       }
-      // Apply pagination if params has limit/offset
       const limit = Number(params[params.length - 2]) || 10;
       const offset = Number(params[params.length - 1]) || 0;
       const paged = result.slice(offset, offset + limit);
