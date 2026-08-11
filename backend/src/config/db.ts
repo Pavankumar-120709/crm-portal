@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
+import { SCHEMA_SQL } from '../db/schema';
 
 dotenv.config();
 
@@ -117,28 +118,22 @@ export async function query(text: string, params: any[] = []): Promise<{ rows: a
       const res = await pgPool.query(text, params);
       return { rows: res.rows, rowCount: res.rowCount ?? res.rows.length };
     } catch (err: any) {
-      // If table doesn't exist yet (42P01), trigger DDL init automatically
+      // If table doesn't exist yet (42P01), trigger DDL init automatically using embedded SCHEMA_SQL
       if (err.code === '42P01' && !isAutoInitializingPg) {
         isAutoInitializingPg = true;
         try {
           console.log('⚡ Missing database tables detected. Auto-executing Postgres schema initialization...');
-          const schemaPath = path.join(__dirname, '../db/schema.sql');
-          if (fs.existsSync(schemaPath)) {
-            const schemaSql = fs.readFileSync(schemaPath, 'utf8');
-            await pgPool.query(schemaSql);
-            // Run seed script inline
-            const defaultPasswordHash = bcrypt.hashSync('Password123!', 10);
-            await pgPool.query(`
-              INSERT INTO users (name, email, password_hash, role) VALUES
-              ('System Administrator', 'admin@erp.com', '${defaultPasswordHash}', 'ADMIN'),
-              ('Sales Representative', 'sales@erp.com', '${defaultPasswordHash}', 'SALES'),
-              ('Warehouse Manager', 'warehouse@erp.com', '${defaultPasswordHash}', 'WAREHOUSE'),
-              ('Accounts Officer', 'accounts@erp.com', '${defaultPasswordHash}', 'ACCOUNTS')
-              ON CONFLICT (email) DO NOTHING;
-            `);
-          }
+          await pgPool.query(SCHEMA_SQL);
+          const defaultPasswordHash = bcrypt.hashSync('Password123!', 10);
+          await pgPool.query(`
+            INSERT INTO users (name, email, password_hash, role) VALUES
+            ('System Administrator', 'admin@erp.com', '${defaultPasswordHash}', 'ADMIN'),
+            ('Sales Representative', 'sales@erp.com', '${defaultPasswordHash}', 'SALES'),
+            ('Warehouse Manager', 'warehouse@erp.com', '${defaultPasswordHash}', 'WAREHOUSE'),
+            ('Accounts Officer', 'accounts@erp.com', '${defaultPasswordHash}', 'ACCOUNTS')
+            ON CONFLICT (email) DO NOTHING;
+          `);
           isAutoInitializingPg = false;
-          // Retry original query
           const retryRes = await pgPool.query(text, params);
           return { rows: retryRes.rows, rowCount: retryRes.rowCount ?? retryRes.rows.length };
         } catch (initErr) {

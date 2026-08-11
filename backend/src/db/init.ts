@@ -1,15 +1,12 @@
-import fs from 'fs';
-import path from 'path';
 import bcrypt from 'bcryptjs';
 import { pool, isPostgres, query, dbMode } from '../config/db';
+import { SCHEMA_SQL } from './schema';
 
 export async function initDb() {
   console.log(`⚡ Initializing Database Schema & Seeding Initial Data (Engine: ${dbMode})...`);
   const client = await pool.connect();
   try {
-    // 1. Read schema.sql
-    const schemaPath = path.join(__dirname, 'schema.sql');
-    let schemaSql = fs.readFileSync(schemaPath, 'utf8');
+    let schemaSql = SCHEMA_SQL;
 
     if (isPostgres) {
       await client.query(schemaSql);
