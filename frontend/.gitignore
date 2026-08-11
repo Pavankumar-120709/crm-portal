@@ -1,0 +1,16 @@
+# Node dependencies
+node_modules/
+
+# Environment files
+.env
+.env.local
+.env.production
+*.env
+!.env.example
+
+# Vite build output
+dist/
+
+# Logs
+*.log
+npm-debug.log*

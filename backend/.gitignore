@@ -1,0 +1,21 @@
+# Node dependencies
+node_modules/
+
+# Environment files
+.env
+.env.local
+.env.production
+*.env
+
+# TypeScript build output
+dist/
+*.tsbuildinfo
+
+# Local databases
+mini_erp.db
+dev_storage.json
+*.db
+
+# Logs
+*.log
+npm-debug.log*
