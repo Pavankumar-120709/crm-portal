@@ -103,7 +103,7 @@ export class ChallanRepository {
       // 2. Fetch product snapshots
       const productIds = data.items.map((i) => i.product_id);
       const prodRes = await client.query('SELECT id, product_name, sku, unit_price FROM products WHERE id = ANY($1)', [productIds]);
-      const productMap = new Map(prodRes.rows.map((p: any) => [p.id, p]));
+      const productMap = new Map<number, any>(prodRes.rows.map((p: any) => [p.id, p]));
 
       for (const item of data.items) {
         if (!productMap.has(item.product_id)) {
@@ -123,7 +123,7 @@ export class ChallanRepository {
 
       // 4. Create challan_items with snapshots
       for (const item of data.items) {
-        const prod = productMap.get(item.product_id);
+        const prod: any = productMap.get(item.product_id);
         const unitPrice = parseFloat(prod.unit_price);
         const subtotal = unitPrice * item.quantity;
 
@@ -197,13 +197,11 @@ export class ChallanRepository {
 
       // 4. Stock is sufficient for all items. Execute stock reduction & movement records
       for (const item of items) {
-        // Reduce product stock
         await client.query(
           'UPDATE products SET current_stock = current_stock - $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
           [item.quantity, item.product_id]
         );
 
-        // Record stock movement OUT
         await client.query(
           `INSERT INTO stock_movements (product_id, quantity, movement_type, reason, created_by)
            VALUES ($1, $2, 'OUT', $3, $4)`,
@@ -246,7 +244,6 @@ export class ChallanRepository {
         throw { statusCode: 400, message: 'Challan is already cancelled' };
       }
 
-      // If previously CONFIRMED, restore stock
       if (challan.status === 'CONFIRMED') {
         const itemsRes = await client.query('SELECT * FROM challan_items WHERE challan_id = $1', [challanId]);
         for (const item of itemsRes.rows) {

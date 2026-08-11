@@ -18,9 +18,9 @@ export interface JwtPayload {
   role: UserRole;
 }
 
-export interface AuthenticatedRequest extends Request {
+export type AuthenticatedRequest = Request & {
   user?: JwtPayload;
-}
+};
 
 export type CustomerType = 'RETAIL' | 'WHOLESALE' | 'DISTRIBUTOR';
 export type CustomerStatus = 'LEAD' | 'ACTIVE' | 'INACTIVE';
@@ -64,7 +64,6 @@ export interface StockMovement {
   reason?: string;
   created_by?: number;
   created_at: Date;
-  // Joined fields
   product_name?: string;
   sku?: string;
   created_by_name?: string;
@@ -97,7 +96,6 @@ export interface Challan {
   created_by?: number;
   created_at: Date;
   updated_at: Date;
-  // Joined fields
   customer_name?: string;
   created_by_name?: string;
   items?: ChallanItem[];
